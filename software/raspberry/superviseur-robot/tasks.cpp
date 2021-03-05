@@ -26,6 +26,7 @@
 #define PRIORITY_TRECEIVEFROMMON 25
 #define PRIORITY_TSTARTROBOT 20
 #define PRIORITY_TCAMERA 21
+#define PRIORITY_TBATTERY 34
 
 /*
  * Some remarks:
@@ -123,6 +124,11 @@ void Tasks::Init() {
         cerr << "Error task create: " << strerror(-err) << endl << flush;
         exit(EXIT_FAILURE);
     }
+    if (err = rt_task_create(&th_battery, "th_battery", 0, PRIORITY_TBATTERY, 0)) {
+        cerr << "Error task create: " << strerror(-err) << endl << flush;
+        exit(EXIT_FAILURE);
+    }
+    
     cout << "Tasks created successfully" << endl << flush;
 
     /**************************************************************************************/
@@ -133,6 +139,16 @@ void Tasks::Init() {
         exit(EXIT_FAILURE);
     }
     cout << "Queues created successfully" << endl << flush;
+
+    /**************************************************************************************/
+    /* Alarms creation                                                            */
+    /**************************************************************************************/
+   /* if ((err = rt_alarm_create(&alarm_battery, "alarm_battery") < 0) {
+        cerr << "Error alarm create :" << strerror(-err) << endl << flush;
+        exit(EXIT_FAILURE);
+    }
+    cout << "Alarms created successfully" << endl << flush;    */
+    
 
 }
 
@@ -167,8 +183,19 @@ void Tasks::Run() {
         cerr << "Error task start: " << strerror(-err) << endl << flush;
         exit(EXIT_FAILURE);
     }
-
+    if (err = rt_task_start(&th_battery, (void(*)(void*)) & Tasks::BatteryLevelTask, this)) {
+        cerr << "Error task start: " << strerror(-err) << endl << flush;
+        exit(EXIT_FAILURE);
+    }
+    
     cout << "Tasks launched" << endl << flush;
+    
+ /*   if (err = rt_alarm_start(&alarm_battery, 0, 500) {
+        cerr << "Error alarm start: " << strerror(-err) << endl << flush;
+        exit(EXIT_FAILURE);
+    }
+    
+    cout << "Battery alarm started" << endl << flush;*/
 }
 
 /**
@@ -382,6 +409,28 @@ void Tasks::MoveTask(void *arg) {
         cout << endl << flush;
     }
 }
+
+/**
+ * @brief Thread handling the battery level check.
+ */
+void Tasks::BatteryLevelTask(void *arg){
+    
+    cout << "Start " << __PRETTY_FUNCTION__ << endl << flush;
+    // Synchronization barrier (waiting that all tasks are starting)
+    rt_sem_p(&sem_barrier, TM_INFINITE);
+    
+    /**************************************************************************************/
+    /* The task starts here                                                               */
+    /**************************************************************************************/
+    rt_task_set_periodic(NULL, TM_NOW, 50000000);
+    
+    while(1){
+        rt_task_wait_period(NULL);
+        cout << "Battery level update";
+        robot.Write(new Message((MessageID)));
+    }
+}
+
 
 /**
  * Write a message in a given queue
