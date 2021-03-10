@@ -414,6 +414,8 @@ void Tasks::MoveTask(void *arg) {
  * @brief Thread handling the battery level check.
  */
 void Tasks::BatteryLevelTask(void *arg){
+    Message levelBat;
+    
     
     cout << "Start " << __PRETTY_FUNCTION__ << endl << flush;
     // Synchronization barrier (waiting that all tasks are starting)
@@ -426,8 +428,10 @@ void Tasks::BatteryLevelTask(void *arg){
     
     while(1){
         rt_task_wait_period(NULL);
-        cout << "Battery level update";
-        robot.Write(new Message((MessageID)));
+        robot.Write(new Message((MessageID)MESSAGE_ROBOT_BATTERY_GET));
+        levelBat = StringToMessage(robot.Read());
+        monitot.Write(levelBat);
+        cout << MessageToString(levelBat) << endl << flush;
     }
 }
 

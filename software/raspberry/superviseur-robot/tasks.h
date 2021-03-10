@@ -33,14 +33,14 @@
 #include "comrobot.h"
 #include "camera.h"
 #include "img.h"
-
+https://github.com/zinebamegz/N.O.A..git
 using namespace std;
 
 class Tasks {
 public:
     /**
      * @brief Initializes main structures (semaphores, tasks, mutex, etc.)
-     */
+     */https://github.com/zinebamegz/N.O.A..git
     void Init();
 
     /**
@@ -139,6 +139,11 @@ private:
      * @brief Thread handling control of the robot.
      */
     void MoveTask(void *arg);
+    
+    /**
+    * @brief Thread handling the battery level check.
+    */
+    void BatteryLevelTask(void *arg);
     
     /**********************************************************************/
     /* Queue services                                                     */
