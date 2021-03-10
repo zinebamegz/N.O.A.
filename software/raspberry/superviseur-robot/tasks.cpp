@@ -414,24 +414,26 @@ void Tasks::MoveTask(void *arg) {
  * @brief Thread handling the battery level check.
  */
 void Tasks::BatteryLevelTask(void *arg){
-    Message levelBat;
+    Message* levelBat;
     
     
     cout << "Start " << __PRETTY_FUNCTION__ << endl << flush;
     // Synchronization barrier (waiting that all tasks are starting)
     rt_sem_p(&sem_barrier, TM_INFINITE);
+    //rt_sem_p(&sem_startRobot, TM_INFINITE);
     
     /**************************************************************************************/
     /* The task starts here                                                               */
     /**************************************************************************************/
     rt_task_set_periodic(NULL, TM_NOW, 50000000);
-    
+    cout << "before while battery" << endl << flush;
     while(1){
+        cout << "entering while battery" << endl << flush;
         rt_task_wait_period(NULL);
-        robot.Write(new Message((MessageID)MESSAGE_ROBOT_BATTERY_GET));
-        levelBat = StringToMessage(robot.Read());
-        monitot.Write(levelBat);
-        cout << MessageToString(levelBat) << endl << flush;
+        cout << "after waiting" << endl << flush;
+        levelBat=robot.SendCommand(robot.GetBattery(),MESSAGE_ROBOT_BATTERY_LEVEL, 3);
+        cout << "level battery:" << levelBat->ToString() << endl << flush;
+        monitor.Write(levelBat);
     }
 }
 

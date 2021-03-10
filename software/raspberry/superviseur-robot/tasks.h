@@ -33,14 +33,14 @@
 #include "comrobot.h"
 #include "camera.h"
 #include "img.h"
-https://github.com/zinebamegz/N.O.A..git
+/*https://github.com/zinebamegz/N.O.A..git*/
 using namespace std;
 
 class Tasks {
 public:
     /**
      * @brief Initializes main structures (semaphores, tasks, mutex, etc.)
-     */https://github.com/zinebamegz/N.O.A..git
+     *https://github.com/zinebamegz/N.O.A..git*/
     void Init();
 
     /**
@@ -103,7 +103,7 @@ private:
     /**********************************************************************/
     /* Alarms                                                             */
     /**********************************************************************/
-    RT_ALARM alarm_battery;
+    /*T_ALARM alarm_battery;*/
     
     
     
