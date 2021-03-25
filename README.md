@@ -8,3 +8,7 @@ Depot du projet de temps reel 4eme année au departement GEI de l'INSA Toulouse.
 - doc: contient les sujets de TD et TP
 - aruco_markers: Script de generation des tags (aruco) utilisés sur les robots
 
+
+--Path pour acceder à l'exécution du superviseur:
+~/Documents/4IR/Cours/Temps_Reel/N.O.A./software/raspberry/superviseur-robot/dist/Debug/GNU-Linux
+

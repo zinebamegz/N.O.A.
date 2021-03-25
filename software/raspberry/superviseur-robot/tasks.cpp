@@ -74,6 +74,12 @@ void Tasks::Init() {
         cerr << "Error mutex create: " << strerror(-err) << endl << flush;
         exit(EXIT_FAILURE);
     }
+    
+    if (err = rt_mutex_create(&mutex_battery, NULL)) {
+        cerr << "Error mutex create: " << strerror(-err) << endl << flush;
+        exit(EXIT_FAILURE);
+    }
+    
     cout << "Mutexes created successfully" << endl << flush;
 
     /**************************************************************************************/
@@ -128,6 +134,7 @@ void Tasks::Init() {
         cerr << "Error task create: " << strerror(-err) << endl << flush;
         exit(EXIT_FAILURE);
     }
+
     
     cout << "Tasks created successfully" << endl << flush;
 
@@ -187,6 +194,7 @@ void Tasks::Run() {
         cerr << "Error task start: " << strerror(-err) << endl << flush;
         exit(EXIT_FAILURE);
     }
+
     
     cout << "Tasks launched" << endl << flush;
     
@@ -340,6 +348,8 @@ void Tasks::OpenComRobot(void *arg) {
     }
 }
 
+
+
 /**
  * @brief Thread starting the communication with the robot.
  */
@@ -372,6 +382,8 @@ void Tasks::StartRobotTask(void *arg) {
         }
     }
 }
+
+
 
 /**
  * @brief Thread handling control of the robot.
@@ -415,26 +427,45 @@ void Tasks::MoveTask(void *arg) {
  */
 void Tasks::BatteryLevelTask(void *arg){
     Message* levelBat;
-    
-    
+
     cout << "Start " << __PRETTY_FUNCTION__ << endl << flush;
     // Synchronization barrier (waiting that all tasks are starting)
     rt_sem_p(&sem_barrier, TM_INFINITE);
+    rt_sem_p(&sem_startRobot, TM_INFINITE);
+    
+    int compteur=0;
+    
     //rt_sem_p(&sem_startRobot, TM_INFINITE);
     
     /**************************************************************************************/
     /* The task starts here                                                               */
     /**************************************************************************************/
-    rt_task_set_periodic(NULL, TM_NOW, 50000000);
+    rt_task_set_periodic(NULL, TM_NOW, 500000000);
     cout << "before while battery" << endl << flush;
-    while(1){
+    while(compteur<=3){
+        
         cout << "entering while battery" << endl << flush;
         rt_task_wait_period(NULL);
-        cout << "after waiting" << endl << flush;
-        levelBat=robot.SendCommand(robot.GetBattery(),MESSAGE_ROBOT_BATTERY_LEVEL, 3);
-        cout << "level battery:" << levelBat->ToString() << endl << flush;
-        monitor.Write(levelBat);
+        
+        try{
+            rt_mutex_acquire(&mutex_battery, TM_INFINITE);
+            cout << "after waiting" << endl << flush;
+
+            levelBat=robot.Write(robot.GetBattery());
+            cout << "level battery:" << levelBat->ToString() << endl << flush;
+            rt_mutex_release(&mutex_battery);
+
+            cout << "envoie level battery au moniteur:"  << endl << flush;
+            WriteInQueue(&q_messageToMon, levelBat);
+            compteur=0;
+        }catch(std::runtime_error){
+            rt_mutex_release(&mutex_battery);
+            cout << "envoie level battery au moniteur:"  << endl << flush;
+            compteur++;
+        }
     }
+    //renvoye communication NOT OK au moniteur!!
+    //cout << "communication perdue:"  << endl << flush;
 }
 
 
