@@ -26,7 +26,9 @@
 #define PRIORITY_TRECEIVEFROMMON 25
 #define PRIORITY_TSTARTROBOT 20
 #define PRIORITY_TCAMERA 21
-#define PRIORITY_TBATTERY 34
+#define PRIORITY_TBATTERY 28
+#define PRIORITY_TCOUNTER 26
+#define PRIORITY_TREINIT 2
 
 /*
  * Some remarks:
@@ -134,6 +136,10 @@ void Tasks::Init() {
         cerr << "Error task create: " << strerror(-err) << endl << flush;
         exit(EXIT_FAILURE);
     }
+    if (err = rt_task_create(&th_counter, "th_counter", 0, PRIORITY_TCOUNTER, 0)) {
+        cerr << "Error task create: " << strerror(-err) << endl << flush;
+        exit(EXIT_FAILURE);
+    }
 
     
     cout << "Tasks created successfully" << endl << flush;
@@ -194,6 +200,10 @@ void Tasks::Run() {
         cerr << "Error task start: " << strerror(-err) << endl << flush;
         exit(EXIT_FAILURE);
     }
+    if (err = rt_task_start(&th_counter, (void(*)(void*)) & Tasks::CounterTask, this)) {
+        cerr << "Error task start: " << strerror(-err) << endl << flush;
+        exit(EXIT_FAILURE);
+    }
 
     
     cout << "Tasks launched" << endl << flush;
@@ -205,6 +215,110 @@ void Tasks::Run() {
     
     cout << "Battery alarm started" << endl << flush;*/
 }
+
+/**
+ * @brief Réinitialisation des structures de l'application (tâches, mutex, 
+ * semaphore, etc.)
+ */
+void Tasks::ReInit(void *arg) {
+    int status;
+    int err;
+
+    cout << "Reinitializing..." << endl << flush;
+    
+    rt_mutex_acquire(&mutex_robot, TM_INFINITE);
+    robot.Close();
+    monitor.Close();
+    rt_mutex_release(&mutex_robot);
+
+    
+    /**************************************************************************************/
+    /* Tasks creation                                                                     */
+    /**************************************************************************************/
+    if (err = rt_task_delete(&th_battery)) {
+        cerr << "Error task delete: BBBB" << strerror(-err) << endl << flush;
+        exit(EXIT_FAILURE);
+    }
+    cout << "del bat" << endl << flush;
+
+    if (err = rt_task_delete(&th_server)) {
+        cerr << "Error task delete: BBBB" << strerror(-err) << endl << flush;
+        exit(EXIT_FAILURE);
+    }
+    
+    cout << "del serv" << endl << flush;
+    
+    if (err = rt_task_delete(&th_sendToMon)) {
+        cerr << "Error task delete: BBBB" << strerror(-err) << endl << flush;
+        exit(EXIT_FAILURE);
+    }
+    if (err = rt_task_delete(&th_move)) {
+        cerr << "Error task delete: BBBB" << strerror(-err) << endl << flush;
+        exit(EXIT_FAILURE);
+    }
+    if (err = rt_task_delete(&th_receiveFromMon)) {
+        cerr << "Error task delete: BBBB" << strerror(-err) << endl << flush;
+        exit(EXIT_FAILURE);
+    }
+    if (err = rt_task_delete(&th_startRobot)) {
+        cerr << "Error task delete: BBBB" << strerror(-err) << endl << flush;
+        exit(EXIT_FAILURE);
+    }  
+    if (err = rt_task_delete(&th_openComRobot)) {
+        cerr << "Error task delete: BBBB" << strerror(-err) << endl << flush;
+        exit(EXIT_FAILURE);
+    } 
+    if (err = rt_task_delete(&th_counter)) {
+        cerr << "Error task delete: BBBB" << strerror(-err) << endl << flush;
+        exit(EXIT_FAILURE);
+    } 
+    
+    cout << "Tasks deleted" << endl << flush;
+    
+    
+    /**************************************************************************************/
+    /* Tasks creation                                                                     */
+    /**************************************************************************************/
+    if (err = rt_task_create(&th_server, "th_server", 0, PRIORITY_TSERVER, 0)) {
+        cerr << "Error task create: " << strerror(-err) << endl << flush;
+        exit(EXIT_FAILURE);
+    }
+    if (err = rt_task_create(&th_sendToMon, "th_sendToMon", 0, PRIORITY_TSENDTOMON, 0)) {
+        cerr << "Error task create: " << strerror(-err) << endl << flush;
+        exit(EXIT_FAILURE);
+    }
+    if (err = rt_task_create(&th_receiveFromMon, "th_receiveFromMon", 0, PRIORITY_TRECEIVEFROMMON, 0)) {
+        cerr << "Error task create: " << strerror(-err) << endl << flush;
+        exit(EXIT_FAILURE);
+    }
+    if (err = rt_task_create(&th_openComRobot, "th_openComRobot", 0, PRIORITY_TOPENCOMROBOT, 0)) {
+        cerr << "Error task create: " << strerror(-err) << endl << flush;
+        exit(EXIT_FAILURE);
+    }
+    if (err = rt_task_create(&th_startRobot, "th_startRobot", 0, PRIORITY_TSTARTROBOT, 0)) {
+        cerr << "Error task create: " << strerror(-err) << endl << flush;
+        exit(EXIT_FAILURE);
+    }
+    if (err = rt_task_create(&th_move, "th_move", 0, PRIORITY_TMOVE, 0)) {
+        cerr << "Error task create: " << strerror(-err) << endl << flush;
+        exit(EXIT_FAILURE);
+    }
+    if (err = rt_task_create(&th_battery, "th_battery", 0, PRIORITY_TBATTERY, 0)) {
+        cerr << "Error task create: " << strerror(-err) << endl << flush;
+        exit(EXIT_FAILURE);
+    }
+    if (err = rt_task_create(&th_counter, "th_counter", 0, PRIORITY_TCOUNTER, 0)) {
+        cerr << "Error task create: " << strerror(-err) << endl << flush;
+        exit(EXIT_FAILURE);
+    }
+
+    
+    cout << "Tasks created successfully" << endl << flush;
+
+    this->Run();
+
+}
+
 
 /**
  * @brief Arrêt des tâches
@@ -279,6 +393,7 @@ void Tasks::SendToMonTask(void* arg) {
  */
 void Tasks::ReceiveFromMonTask(void *arg) {
     Message *msgRcv;
+    int err;
     
     cout << "Start " << __PRETTY_FUNCTION__ << endl << flush;
     // Synchronization barrier (waiting that all tasks are starting)
@@ -296,7 +411,16 @@ void Tasks::ReceiveFromMonTask(void *arg) {
 
         if (msgRcv->CompareID(MESSAGE_MONITOR_LOST)) {
             delete(msgRcv);
-            exit(-1);
+            if (err = rt_task_create(&th_reInit, "th_reInit", 0, PRIORITY_TREINIT, 0)) {
+                cerr << "Error task create: " << strerror(-err) << endl << flush;
+                exit(EXIT_FAILURE);
+            }
+            if (err = rt_task_start(&th_reInit, (void(*)(void*)) & Tasks::ReInit, this)) {
+                cerr << "Error task start: " << strerror(-err) << endl << flush;
+                exit(EXIT_FAILURE);
+            }          
+            //exit(-1);
+            
         } else if (msgRcv->CompareID(MESSAGE_ROBOT_COM_OPEN)) {
             rt_sem_v(&sem_openComRobot);
         } else if (msgRcv->CompareID(MESSAGE_ROBOT_START_WITHOUT_WD)) {
@@ -426,48 +550,114 @@ void Tasks::MoveTask(void *arg) {
  * @brief Thread handling the battery level check.
  */
 void Tasks::BatteryLevelTask(void *arg){
-    Message* levelBat;
+    Message* levelBat=0;
+
+    cout << "Start " << __PRETTY_FUNCTION__ << endl << flush;
+    // Synchronization barrier (waiting that all tasks are starting)
+    rt_sem_p(&sem_barrier, TM_INFINITE);
+    rt_sem_p(&sem_startRobot, TM_INFINITE);
+
+    
+    /**************************************************************************************/
+    /* The task starts here                                                               */
+    /**************************************************************************************/
+    cout << "Tache battery"  << endl << flush;    
+    rt_task_set_periodic(NULL, TM_NOW, 500000000);
+    
+    while(1){
+        rt_task_wait_period(NULL);
+
+        rt_mutex_acquire(&mutex_battery, TM_INFINITE);
+
+        levelBat=robot.Write(robot.GetBattery());
+
+        WriteInQueue(&q_messageToMon, levelBat);
+
+        rt_mutex_release(&mutex_battery);
+    }
+    }
+
+
+/**
+ * @brief Thread checking that the communication between the robot and the supervisor is still effective
+ */
+void Tasks::CounterTask(void *arg){
+    Message* check=0;
+    int err;
 
     cout << "Start " << __PRETTY_FUNCTION__ << endl << flush;
     // Synchronization barrier (waiting that all tasks are starting)
     rt_sem_p(&sem_barrier, TM_INFINITE);
     rt_sem_p(&sem_startRobot, TM_INFINITE);
     
-    int compteur=0;
-    
+    int compteur;
     //rt_sem_p(&sem_startRobot, TM_INFINITE);
     
     /**************************************************************************************/
     /* The task starts here                                                               */
     /**************************************************************************************/
     rt_task_set_periodic(NULL, TM_NOW, 500000000);
-    cout << "before while battery" << endl << flush;
+    
+    compteur=0;
     while(compteur<=3){
-        
-        cout << "entering while battery" << endl << flush;
+
         rt_task_wait_period(NULL);
-        
-        try{
-            rt_mutex_acquire(&mutex_battery, TM_INFINITE);
-            cout << "after waiting" << endl << flush;
 
-            levelBat=robot.Write(robot.GetBattery());
-            cout << "level battery:" << levelBat->ToString() << endl << flush;
-            rt_mutex_release(&mutex_battery);
+        rt_mutex_acquire(&mutex_robot, TM_INFINITE);
 
-            cout << "envoie level battery au moniteur:"  << endl << flush;
-            WriteInQueue(&q_messageToMon, levelBat);
-            compteur=0;
-        }catch(std::runtime_error){
-            rt_mutex_release(&mutex_battery);
-            cout << "envoie level battery au moniteur:"  << endl << flush;
+        check=robot.Write(robot.Ping());
+        cout << "compteur = "  << compteur<< endl << flush;
+
+        if (check->CompareID(MESSAGE_ANSWER_ROBOT_TIMEOUT)){
             compteur++;
+            cout << "compteur = "  << compteur<< endl << flush;
+        }else{
+            compteur=0; 
+            WriteInQueue(&q_messageToMon, check);
         }
+        rt_mutex_release(&mutex_robot);
     }
     //renvoye communication NOT OK au moniteur!!
-    //cout << "communication perdue:"  << endl << flush;
-}
+    cout << "communication perdue:"  << endl << flush;
+    WriteInQueue(&q_messageToMon, check);
+    rt_mutex_acquire(&mutex_robot, TM_INFINITE);
+    robot.Close();
+    rt_mutex_release(&mutex_robot);
 
+    //Ferme les tache liees au robot
+    if (err = rt_task_delete(&th_move)) {
+        cerr << "Error task delete: AAAA" << strerror(-err) << endl << flush;
+        exit(EXIT_FAILURE);
+    }
+    cout << "deleteMove"  << endl << flush;
+    if (err = rt_task_delete(&th_battery)) {
+        cerr << "Error task delete: BBBB" << strerror(-err) << endl << flush;
+        exit(EXIT_FAILURE);
+    }
+    cout << "deleteBattery"  << endl << flush;
+    if (err = rt_task_create(&th_move, "th_move", 0, PRIORITY_TMOVE, 0)) {
+        cerr << "Error task create: " << strerror(-err) << endl << flush;
+        exit(EXIT_FAILURE);
+    }
+    cout << "createMove"  << endl << flush;
+    if (err = rt_task_create(&th_battery, "th_battery", 0, PRIORITY_TBATTERY, 0)) {
+        cerr << "Error task create: " << strerror(-err) << endl << flush;
+        exit(EXIT_FAILURE);
+    }
+    cout << "createBattery"  << endl << flush;
+    //Relance ces deux taches
+    if (err = rt_task_start(&th_move, (void(*)(void*)) & Tasks::MoveTask, this)) {
+        cerr << "Error task start: AAAA" << strerror(-err) << endl << flush;
+        exit(EXIT_FAILURE);
+    }
+    cout << "startMove"  << endl << flush;
+    if (err = rt_task_start(&th_battery, (void(*)(void*)) & Tasks::BatteryLevelTask, this)) {
+        cerr << "Error task start: BBBB" << strerror(-err) << endl << flush;
+        exit(EXIT_FAILURE);
+    }
+    cout << "startBattery"  << endl << flush;
+    this->Join();
+}
 
 /**
  * Write a message in a given queue

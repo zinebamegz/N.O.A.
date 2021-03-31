@@ -77,6 +77,8 @@ private:
     RT_TASK th_startRobot;
     RT_TASK th_move;
     RT_TASK th_battery;
+    RT_TASK th_counter;
+    RT_TASK th_reInit;
     
     /**********************************************************************/
     /* Mutex                                                              */
@@ -111,6 +113,12 @@ private:
     /**********************************************************************/
     /* Tasks' functions                                                   */
     /**********************************************************************/
+    
+    /**
+     * @brief Thread handling reinitialisation
+     */
+    void ReInit(void *arg);
+    
     /**
      * @brief Thread handling server communication with the monitor.
      */
@@ -145,6 +153,11 @@ private:
     * @brief Thread handling the battery level check.
     */
     void BatteryLevelTask(void *arg);
+    
+    /**
+    * @brief Thread checking that the communication between the robot and the supervisor is still effective
+    */
+    void CounterTask(void *arg);
     
     /**********************************************************************/
     /* Queue services                                                     */
